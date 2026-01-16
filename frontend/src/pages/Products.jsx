@@ -1,24 +1,33 @@
 import { useEffect, useState } from "react"
 import api from "../api/api"
 import Navbar from "../components/Navbar/"
+import ProductForm from "../components/ProductForm"
+import ProductEditForm from "../components/ProductEditForm"
+
+
+const handleDelete = async (id) => {
+  const confirm = window.confirm("¿Eliminar este producto?")
+  if (!confirm) return
+
+  await api.delete(`/products/${id}`)
+
+  // 🔥 reload inmediato y garantizado
+  window.location.reload()
+}
+
+
 
 export default function Products() {
   const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(null)
 
   useEffect(() => {
     fetchProducts()
   }, [])
 
   const fetchProducts = async () => {
-    try {
-      const res = await api.get("/products")
-      setProducts(res.data)
-    } catch (err) {
-      console.error("Error cargando productos", err)
-    } finally {
-      setLoading(false)
-    }
+    const res = await api.get("/products")
+    setProducts(res.data)
   }
 
   return (
@@ -26,44 +35,71 @@ export default function Products() {
       <Navbar />
 
       <main className="max-w-6xl mx-auto p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold">Inventario</h2>
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h2 className="text-xl font-semibold mb-4">
+            Inventario 🛍️
+          </h2>
 
-          <button className="bg-[#F2C6D8] text-white px-4 py-2 rounded-lg">
-            + Nuevo producto
-          </button>
-        </div>
+          {/* Crear producto */}
+          <ProductForm onCreated={fetchProducts} />
 
-        <div className="bg-white rounded-xl shadow-md overflow-hidden">
-          {loading ? (
-            <p className="p-6 text-gray-500">Cargando...</p>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-gray-100 text-left">
-                <tr>
-                  <th className="p-3">Nombre</th>
-                  <th className="p-3">Precio</th>
-                  <th className="p-3">Stock</th>
-                  <th className="p-3">Acciones</th>
+          {/* Tabla de productos */}
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b text-left text-gray-600">
+                <th className="py-2">Nombre</th>
+                <th>Categoría</th>
+                <th>Talla</th>
+                <th>Color</th>
+                <th>Stock</th>
+                <th>Precio</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {products.map((p) => (
+                <tr key={p.id} className="border-b">
+                  <td className="py-2">{p.name}</td>
+                  <td>{p.category}</td>
+                  <td>{p.size}</td>
+                  <td>{p.color}</td>
+                  <td>{p.stock}</td>
+                  <td>${p.price}</td>
+                  <td className="space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(p)}
+                      className="text-sm text-blue-600 hover:underline"
+                    >
+                      Editar
+                    </button>
+
+
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(p.id)}
+                      className="text-sm text-red-600 hover:underline"
+                    >
+                      Eliminar
+                    </button>
+                  </td>
+
                 </tr>
-              </thead>
-              <tbody>
-                {products.map((p) => (
-                  <tr key={p.id} className="border-t">
-                    <td className="p-3">{p.name}</td>
-                    <td className="p-3">${p.price}</td>
-                    <td className="p-3">{p.stock}</td>
-                    <td className="p-3 space-x-2">
-                      <button className="text-blue-500">Editar</button>
-                      <button className="text-red-500">Eliminar</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+              ))}
+            </tbody>
+          </table>
         </div>
       </main>
+
+      {/* Modal editar */}
+      {editing && (
+        <ProductEditForm
+          product={editing}
+          onClose={() => setEditing(null)}
+          onSaved={fetchProducts}
+        />
+      )}
     </div>
   )
 }

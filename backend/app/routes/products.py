@@ -33,8 +33,11 @@ def create_product(
 
 @router.get("/", response_model=list[ProductResponse])
 def get_products(db: Session = Depends(get_db)):
-    products = db.query(Product).filter(Product.is_active == True).all()
-    return products
+    return (
+        db.query(Product)
+        .filter(Product.is_active == True)
+        .all()
+    )
 
 
 @router.get("/{product_id}", response_model=ProductResponse)
