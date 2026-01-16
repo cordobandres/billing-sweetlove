@@ -2,6 +2,8 @@ from enum import Enum
 from pydantic import BaseModel
 from typing import Optional
 
+
+
 class ProductCategory(str, Enum):
     PAJAMA = "PAJAMA"
     BASIC_LINGERIE = "BASIC_LINGERIE"
@@ -31,3 +33,7 @@ class ProductResponse(BaseModel):
     size: ProductSize
     stock: int
     price: float
+
+class ProductUpdate(BaseModel):
+    stock: Optional[int] = None
+    price: Optional[float] = None
