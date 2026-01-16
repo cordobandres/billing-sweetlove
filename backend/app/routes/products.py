@@ -1,102 +1,135 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import func
+from datetime import datetime
 
 from backend.app.database.database import get_db
+from backend.app.database.sales_models import SaleItem, Sale
 from backend.app.database.models import Product
-from backend.app.models.product import ProductCreate, ProductResponse, ProductUpdate
+from backend.app.utils.csv_export import generate_csv
+
 
 router = APIRouter(
-    prefix="/products",
-    tags=["Products"]
+    prefix="/reports",
+    tags=["Reports"]
 )
 
-@router.post("/", response_model=ProductResponse)
-def create_product(
-    product: ProductCreate,
-    db: Session = Depends(get_db)
-):
-    db_product = Product(
-        name=product.name,
-        category=product.category,
-        color=product.color,
-        size=product.size,
-        stock=product.stock,
-        price=product.price
+# 1️⃣ Top productos vendidos
+@router.get("/top-products")
+def top_products(db: Session = Depends(get_db)):
+    results = (
+        db.query(
+            Product.name,
+            func.sum(SaleItem.quantity).label("total_sold")
+        )
+        .join(Product, Product.id == SaleItem.product_id)
+        .group_by(Product.name)
+        .order_by(func.sum(SaleItem.quantity).desc())
+        .all()
     )
 
-    db.add(db_product)
-    db.commit()
-    db.refresh(db_product)
-
-    return db_product
+    return [{"product": name, "total_sold": total} for name, total in results]
 
 
-@router.get("/", response_model=list[ProductResponse])
-def get_products(db: Session = Depends(get_db)):
-    products = db.query(Product).filter(Product.is_active == True).all()
-    return products
-
-
-@router.get("/{product_id}", response_model=ProductResponse)
-def get_product_by_id(
-    product_id: int,
-    db: Session = Depends(get_db)
-):
-    product = (
-        db.query(Product)
-        .filter(Product.id == product_id, Product.is_active == True)
-        .first()
+# 2️⃣ Ventas por categoría
+@router.get("/by-category")
+def sales_by_category(db: Session = Depends(get_db)):
+    results = (
+        db.query(
+            Product.category,
+            func.sum(SaleItem.quantity).label("total_sold")
+        )
+        .join(Product, Product.id == SaleItem.product_id)
+        .group_by(Product.category)
+        .order_by(func.sum(SaleItem.quantity).desc())
+        .all()
     )
 
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-
-    return product
+    return [{"category": category, "total_sold": total} for category, total in results]
 
 
-
-@router.patch("/{product_id}", response_model=ProductResponse)
-def update_product(
-    product_id: int,
-    product_data: ProductUpdate,
-    db: Session = Depends(get_db)
-):
-    product = (
-        db.query(Product)
-        .filter(Product.id == product_id, Product.is_active == True)
-        .first()
+# 3️⃣ Ventas por MES
+@router.get("/by-month")
+def sales_by_month(db: Session = Depends(get_db)):
+    results = (
+        db.query(
+            func.strftime("%Y-%m", Sale.date).label("month"),
+            func.sum(Sale.total).label("total_sales")
+        )
+        .filter(Sale.is_cancelled == False)
+        .group_by("month")
+        .order_by("month")
+        .all()
     )
 
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-
-    if product_data.stock is not None:
-        product.stock = product_data.stock
-
-    if product_data.price is not None:
-        product.price = product_data.price
-
-    db.commit()
-    db.refresh(product)
-
-    return product
+    return [{"month": month, "total_sales": total} for month, total in results]
 
 
-@router.delete("/{product_id}")
-def delete_product(
-    product_id: int,
-    db: Session = Depends(get_db)
-):
-    product = (
-        db.query(Product)
-        .filter(Product.id == product_id, Product.is_active == True)
-        .first()
+# 4️⃣ Ventas por TALLA
+@router.get("/by-size")
+def sales_by_size(db: Session = Depends(get_db)):
+    results = (
+        db.query(
+            Product.size,
+            func.sum(SaleItem.quantity).label("total_sold")
+        )
+        .join(Product, Product.id == SaleItem.product_id)
+        .group_by(Product.size)
+        .order_by(func.sum(SaleItem.quantity).desc())
+        .all()
     )
 
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+    return [{"size": size, "total_sold": total} for size, total in results]
 
-    product.is_active = False
-    db.commit()
 
-    return {"message": "Product deactivated successfully"}
+# 5️⃣ Ventas por COLOR
+@router.get("/by-color")
+def sales_by_color(db: Session = Depends(get_db)):
+    results = (
+        db.query(
+            Product.color,
+            func.sum(SaleItem.quantity).label("total_sold")
+        )
+        .join(Product, Product.id == SaleItem.product_id)
+        .group_by(Product.color)
+        .order_by(func.sum(SaleItem.quantity).desc())
+        .all()
+    )
+
+    return [{"color": color, "total_sold": total} for color, total in results]
+
+@router.get("/by-month/export")
+def export_sales_by_month(db: Session = Depends(get_db)):
+    results = (
+        db.query(
+            func.strftime("%Y-%m", Sale.date).label("month"),
+            func.sum(Sale.total).label("total_sales")
+        )
+        .filter(Sale.is_cancelled == False)
+        .group_by("month")
+        .order_by("month")
+        .all()
+    )
+
+    headers = ["month", "total_sales"]
+    rows = [[month, total] for month, total in results]
+
+    return generate_csv(headers, rows)
+
+@router.get("/top-products/export")
+def export_top_products(db: Session = Depends(get_db)):
+    results = (
+        db.query(
+            Product.name,
+            func.sum(SaleItem.quantity).label("total_sold")
+        )
+        .join(Product, Product.id == SaleItem.product_id)
+        .group_by(Product.name)
+        .order_by(func.sum(SaleItem.quantity).desc())
+        .all()
+    )
+
+    headers = ["product", "total_sold"]
+    rows = [[name, total] for name, total in results]
+
+    return generate_csv(headers, rows)

@@ -1,22 +1,24 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime
 
 from backend.app.database.database import get_db
 from backend.app.database.sales_models import SaleItem, Sale
 from backend.app.database.models import Product
+from backend.app.security.dependencies import get_current_user
 from backend.app.utils.csv_export import generate_csv
-
 
 router = APIRouter(
     prefix="/reports",
     tags=["Reports"]
 )
 
-# 1️⃣ Top productos vendidos
+
 @router.get("/top-products")
-def top_products(db: Session = Depends(get_db)):
+def top_products(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
     results = (
         db.query(
             Product.name,
@@ -31,9 +33,11 @@ def top_products(db: Session = Depends(get_db)):
     return [{"product": name, "total_sold": total} for name, total in results]
 
 
-# 2️⃣ Ventas por categoría
 @router.get("/by-category")
-def sales_by_category(db: Session = Depends(get_db)):
+def sales_by_category(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
     results = (
         db.query(
             Product.category,
@@ -48,9 +52,11 @@ def sales_by_category(db: Session = Depends(get_db)):
     return [{"category": category, "total_sold": total} for category, total in results]
 
 
-# 3️⃣ Ventas por MES
 @router.get("/by-month")
-def sales_by_month(db: Session = Depends(get_db)):
+def sales_by_month(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
     results = (
         db.query(
             func.strftime("%Y-%m", Sale.date).label("month"),
@@ -65,41 +71,11 @@ def sales_by_month(db: Session = Depends(get_db)):
     return [{"month": month, "total_sales": total} for month, total in results]
 
 
-# 4️⃣ Ventas por TALLA
-@router.get("/by-size")
-def sales_by_size(db: Session = Depends(get_db)):
-    results = (
-        db.query(
-            Product.size,
-            func.sum(SaleItem.quantity).label("total_sold")
-        )
-        .join(Product, Product.id == SaleItem.product_id)
-        .group_by(Product.size)
-        .order_by(func.sum(SaleItem.quantity).desc())
-        .all()
-    )
-
-    return [{"size": size, "total_sold": total} for size, total in results]
-
-
-# 5️⃣ Ventas por COLOR
-@router.get("/by-color")
-def sales_by_color(db: Session = Depends(get_db)):
-    results = (
-        db.query(
-            Product.color,
-            func.sum(SaleItem.quantity).label("total_sold")
-        )
-        .join(Product, Product.id == SaleItem.product_id)
-        .group_by(Product.color)
-        .order_by(func.sum(SaleItem.quantity).desc())
-        .all()
-    )
-
-    return [{"color": color, "total_sold": total} for color, total in results]
-
 @router.get("/by-month/export")
-def export_sales_by_month(db: Session = Depends(get_db)):
+def export_sales_by_month(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
     results = (
         db.query(
             func.strftime("%Y-%m", Sale.date).label("month"),
@@ -113,23 +89,4 @@ def export_sales_by_month(db: Session = Depends(get_db)):
 
     headers = ["month", "total_sales"]
     rows = [[month, total] for month, total in results]
-
-    return generate_csv(headers, rows)
-
-@router.get("/top-products/export")
-def export_top_products(db: Session = Depends(get_db)):
-    results = (
-        db.query(
-            Product.name,
-            func.sum(SaleItem.quantity).label("total_sold")
-        )
-        .join(Product, Product.id == SaleItem.product_id)
-        .group_by(Product.name)
-        .order_by(func.sum(SaleItem.quantity).desc())
-        .all()
-    )
-
-    headers = ["product", "total_sold"]
-    rows = [[name, total] for name, total in results]
-
     return generate_csv(headers, rows)
