@@ -79,3 +79,25 @@ def create_sale(
             for item in sale_db.items
         ]
     )
+
+@router.get("/", response_model=list[SaleResponse])
+def get_sales(db: Session = Depends(get_db)):
+    sales = db.query(Sale).filter(Sale.is_cancelled == False).all()
+
+    return [
+        SaleResponse(
+            id=sale.id,
+            date=sale.date,
+            total=sale.total,
+            items=[
+                SaleItemResponse(
+                    product_id=item.product_id,
+                    quantity=item.quantity,
+                    unit_price=item.unit_price,
+                    subtotal=item.subtotal
+                )
+                for item in sale.items
+            ]
+        )
+        for sale in sales
+    ]
