@@ -6,6 +6,8 @@ from datetime import datetime
 from backend.app.database.database import get_db
 from backend.app.database.sales_models import SaleItem, Sale
 from backend.app.database.models import Product
+from backend.app.utils.csv_export import generate_csv
+
 
 router = APIRouter(
     prefix="/reports",
@@ -95,3 +97,39 @@ def sales_by_color(db: Session = Depends(get_db)):
     )
 
     return [{"color": color, "total_sold": total} for color, total in results]
+
+@router.get("/by-month/export")
+def export_sales_by_month(db: Session = Depends(get_db)):
+    results = (
+        db.query(
+            func.strftime("%Y-%m", Sale.date).label("month"),
+            func.sum(Sale.total).label("total_sales")
+        )
+        .filter(Sale.is_cancelled == False)
+        .group_by("month")
+        .order_by("month")
+        .all()
+    )
+
+    headers = ["month", "total_sales"]
+    rows = [[month, total] for month, total in results]
+
+    return generate_csv(headers, rows)
+
+@router.get("/top-products/export")
+def export_top_products(db: Session = Depends(get_db)):
+    results = (
+        db.query(
+            Product.name,
+            func.sum(SaleItem.quantity).label("total_sold")
+        )
+        .join(Product, Product.id == SaleItem.product_id)
+        .group_by(Product.name)
+        .order_by(func.sum(SaleItem.quantity).desc())
+        .all()
+    )
+
+    headers = ["product", "total_sold"]
+    rows = [[name, total] for name, total in results]
+
+    return generate_csv(headers, rows)
