@@ -101,3 +101,40 @@ def get_sales(db: Session = Depends(get_db)):
         )
         for sale in sales
     ]
+
+@router.patch("/{sale_id}/cancel")
+def cancel_sale(
+    sale_id: int,
+    db: Session = Depends(get_db)
+):
+    sale = (
+        db.query(Sale)
+        .filter(Sale.id == sale_id, Sale.is_cancelled == False)
+        .first()
+    )
+
+    if not sale:
+        raise HTTPException(
+            status_code=404,
+            detail="Sale not found or already cancelled"
+        )
+
+    # Devolver stock
+    for item in sale.items:
+        product = (
+            db.query(Product)
+            .filter(Product.id == item.product_id)
+            .first()
+        )
+
+        if product:
+            product.stock += item.quantity
+
+    sale.is_cancelled = True
+
+    db.commit()
+
+    return {
+        "message": "Sale cancelled successfully",
+        "sale_id": sale.id
+    }
