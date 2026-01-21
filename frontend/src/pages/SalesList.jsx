@@ -1,60 +1,96 @@
 import { useEffect, useState } from "react"
-import { getSales } from "../api/sales"
-import Navbar from "../components/Navbar"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
+import api from "../api/api"
 
 export default function SalesList() {
   const [sales, setSales] = useState([])
-  const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadSales()
   }, [])
 
   const loadSales = async () => {
-    const res = await getSales()
-    setSales(res.data)
+    try {
+      const res = await api.get("/sales/")
+      setSales(res.data)
+    } catch (err) {
+      console.error("Error cargando ventas", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const cancelSale = async (id) => {
+    const confirm = window.confirm(
+      "¿Seguro que deseas cancelar esta venta? Se devolverá el stock."
+    )
+    if (!confirm) return
+
+    try {
+      await api.patch(`/sales/${id}/cancel`)
+      loadSales()
+      alert("Venta cancelada correctamente ❌")
+    } catch (err) {
+      alert("Error cancelando la venta")
+    }
+  }
+
+  if (loading) {
+    return <p className="text-center">Cargando ventas...</p>
   }
 
   return (
-    <div className="min-h-screen bg-[#E6E6FA]">
-      <Navbar />
+    <div className="bg-white p-6 rounded-xl shadow max-w-6xl mx-auto">
+      <h2 className="text-xl font-semibold mb-4">
+        Historial de Ventas 📄
+      </h2>
 
-      <main className="max-w-5xl mx-auto p-6">
-        <div className="bg-white rounded-xl shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Ventas 💳</h2>
+      {sales.length === 0 ? (
+        <p className="text-gray-500">No hay ventas registradas</p>
+      ) : (
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b text-left text-gray-600">
+              <th className="py-2">ID</th>
+              <th>Fecha</th>
+              <th>Total</th>
+              <th>Items</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
 
-          <table className="w-full">
-            <thead className="border-b text-gray-500 text-left">
-              <tr>
-                <th>ID</th>
-                <th>Fecha</th>
-                <th>Total</th>
-                <th></th>
+          <tbody>
+            {sales.map((sale) => (
+              <tr key={sale.id} className="border-b">
+                <td className="py-2">{sale.id}</td>
+                <td>
+                  {new Date(sale.date).toLocaleString()}
+                </td>
+                <td className="font-semibold">
+                  ${sale.total}
+                </td>
+                <td>{sale.items.length}</td>
+                <td className="space-x-3">
+                  <Link
+                    to={`/sales/${sale.id}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Ver
+                  </Link>
+
+                  <button
+                    onClick={() => cancelSale(sale.id)}
+                    className="text-red-600 hover:underline"
+                  >
+                    Cancelar
+                  </button>
+                </td>
               </tr>
-            </thead>
-
-            <tbody>
-              {sales.map(sale => (
-                <tr key={sale.id} className="border-b">
-                  <td>{sale.id}</td>
-                  <td>{new Date(sale.date).toLocaleString()}</td>
-                  <td>${sale.total}</td>
-                  <td>
-                    <button
-                      onClick={() => navigate(`/sales/${sale.id}`)}
-                      className="text-pink-500 font-semibold"
-                    >
-                      Ver
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-        </div>
-      </main>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   )
 }

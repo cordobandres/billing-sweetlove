@@ -1,98 +1,61 @@
 import { useEffect, useState } from "react"
 import api from "../api/api"
-import Navbar from "../components/Navbar/"
 import ProductForm from "../components/ProductForm"
 import ProductEditForm from "../components/ProductEditForm"
-
-
-const handleDelete = async (id) => {
-  const confirm = window.confirm("¿Eliminar este producto?")
-  if (!confirm) return
-
-  await api.delete(`/products/${id}`)
-
-  // 🔥 reload inmediato y garantizado
-  window.location.reload()
-}
-
-
 
 export default function Products() {
   const [products, setProducts] = useState([])
   const [editing, setEditing] = useState(null)
-
-  useEffect(() => {
-    fetchProducts()
-  }, [])
 
   const fetchProducts = async () => {
     const res = await api.get("/products")
     setProducts(res.data)
   }
 
+  useEffect(() => {
+    fetchProducts()
+  }, [])
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("¿Eliminar este producto?")) return
+    await api.delete(`/products/${id}`)
+    fetchProducts()
+  }
+
   return (
-    <div className="min-h-screen bg-[#E6E6FA]">
-      <Navbar />
+    <div className="bg-white rounded-xl shadow p-6">
+      <h2 className="text-xl font-semibold mb-4">Inventario 🛍️</h2>
 
-      <main className="max-w-6xl mx-auto p-6">
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">
-            Inventario 🛍️
-          </h2>
+      <ProductForm onCreated={fetchProducts} />
 
-          {/* Crear producto */}
-          <ProductForm onCreated={fetchProducts} />
+      <table className="w-full mt-4">
+        <thead>
+          <tr className="text-left text-gray-600 border-b">
+            <th>Nombre</th>
+            <th>Stock</th>
+            <th>Precio</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {products.map(p => (
+            <tr key={p.id} className="border-b">
+              <td>{p.name}</td>
+              <td>{p.stock}</td>
+              <td>${p.price}</td>
+              <td className="space-x-3">
+                <button onClick={() => setEditing(p)} className="text-blue-600">
+                  Editar
+                </button>
+                <button onClick={() => handleDelete(p.id)} className="text-red-600">
+                  Eliminar
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
-          {/* Tabla de productos */}
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b text-left text-gray-600">
-                <th className="py-2">Nombre</th>
-                <th>Categoría</th>
-                <th>Talla</th>
-                <th>Color</th>
-                <th>Stock</th>
-                <th>Precio</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {products.map((p) => (
-                <tr key={p.id} className="border-b">
-                  <td className="py-2">{p.name}</td>
-                  <td>{p.category}</td>
-                  <td>{p.size}</td>
-                  <td>{p.color}</td>
-                  <td>{p.stock}</td>
-                  <td>${p.price}</td>
-                  <td className="space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => setEditing(p)}
-                      className="text-sm text-blue-600 hover:underline"
-                    >
-                      Editar
-                    </button>
-
-
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(p.id)}
-                      className="text-sm text-red-600 hover:underline"
-                    >
-                      Eliminar
-                    </button>
-                  </td>
-
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </main>
-
-      {/* Modal editar */}
       {editing && (
         <ProductEditForm
           product={editing}

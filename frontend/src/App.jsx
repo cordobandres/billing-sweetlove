@@ -1,29 +1,31 @@
 import { Routes, Route, Navigate } from "react-router-dom"
+import Layout from "./components/Layout"
+import ProtectedRoute from "./components/ProtectedRoute"
 
 import Login from "./auth/Login"
 import Dashboard from "./pages/Dashboard"
 import Products from "./pages/Products"
-import Sales from "./pages/Sales/"
-import SalesList from "./pages/SalesList/"
+import Sales from "./pages/Sales"
+import SalesList from "./pages/SalesList"
 import SaleDetail from "./pages/SaleDetail"
-import ProtectedRoute from "./components/ProtectedRoute"
+import Reports from "./pages/Reports"
 
 export default function App() {
   return (
     <Routes>
-      {/* Public */}
       <Route path="/login" element={<Login />} />
 
-      {/* Protected */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/products" element={<Products />} />
-        <Route path="/sales" element={<Sales />} />
-        <Route path="/sales/list" element={<SalesList />} />
-        <Route path="/sales/:id" element={<SaleDetail />} />
+        <Route element={<Layout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/sales" element={<Sales />} />
+          <Route path="/sales/list" element={<SalesList />} />
+          <Route path="/sales/:id" element={<SaleDetail />} />
+          <Route path="/reports" element={<Reports />} />
+        </Route>
       </Route>
 
-      {/* Fallback */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   )
